@@ -1,7 +1,5 @@
 class Vagrant::BoostrapUser
-  def initialize(vm, remote_user: ENV['ANSIBLE_REMOTE_USER'])
-    raise "You need to set ANSIBLE_REMOTE_USER in your shell" unless remote_user
-
+  def initialize(vm, remote_user:)
     @vm          = vm
     @remote_user = remote_user
 
