@@ -12,14 +12,17 @@ class Shovel
 
   CACHE_FILE     = '.rake-cache'
 
+  GITHUB_SHA_URL_FORMAT = 'https://github.com/betterplace/%s/commit/%s'
+  GITHUB_TAG_URL_FORMAT = 'https://github.com/betterplace/%s/releases/tag/%s'
+
   def initialize(
-    github_sha_url:,
-    github_tag_url:,
+    github_repo:,
     flowdock_api_token:,
     release_branch: RELEASE_BRANCH
   )
-    @github_sha_url     = github_sha_url
-    @github_tag_url     = github_tag_url
+    github_repo =~ %r(\A[^/]+/[^/]+\z) or
+      raise ArgumentError, 'github_repo must be of format foo/bar'
+    @github_repo        = github_repo
     @flowdock_api_token = flowdock_api_token
     @release_branch     = release_branch
     @start_at           = Time.now
@@ -212,7 +215,7 @@ class Shovel
   end
 
   def github_sha_link
-    "<a href=\"#{@github_sha_url % current_sha}\">#{current_sha[0, 6]}</a>"
+    "<a href=\"#{GITHUB_SHA_URL_FORMAT % [ @github_repo, current_sha ]}\">#{current_sha[0, 6]}</a>"
   end
 
   def tag_name
@@ -220,7 +223,7 @@ class Shovel
   end
 
   def github_tag_link
-    "<a href=\"#{@github_tag_url % tag_name}\">#{tag_name}</a>"
+    "<a href=\"#{GITHUB_TAG_URL_FORMAT % [ @github_repo, tag_name ]}\">#{tag_name}</a>"
   end
 
   def notify_flow
@@ -231,7 +234,7 @@ class Shovel
       from: { name: "Provisionaire", address: "developers@betterplace.org" }
     )
     flow.push_to_team_inbox(
-      subject: "Provisioned #{shortcut(playbook)} / #{shortcut(inventory)}",
+      subject: "Provisioned #@github_repo: #{shortcut(playbook)} / #{shortcut(inventory)}",
       content: "<p>Commit #{github_sha_link}, tag #{github_tag_link} was "\
                "provisioned via playbook <b>#{shortcut(playbook)}</b> for "\
                "inventory <b>#{shortcut(inventory)}</b> in #{duration}.</p>",
