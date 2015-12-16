@@ -246,8 +246,11 @@ class Shovel
     fail red("Caught #{e.class}: #{e}")
   end
 
+  def nodesc(*)
+  end
+
   def setup_task_load_argument_cache
-    desc 'Load argument cache if existent'
+    nodesc 'Load argument cache if existent'
     task :load_argument_cache do
       if File.exist?(CACHE_FILE)
         puts "Found cached variables:"
@@ -264,14 +267,14 @@ class Shovel
   end
 
   def setup_task_sync_git
-    desc 'Ensure the local release branch is synced'
+    nodesc 'Ensure the local release branch is synced'
     task :sync_git do
       ensure_branch_is_synced
     end
   end
 
   def setup_task_play
-    desc 'Play the playbook, eventually with preview'
+    nodesc 'Play the playbook, eventually with preview'
     task :play => :sync_git do
       if preview?
         do_play dry: true
@@ -292,7 +295,7 @@ class Shovel
   end
 
   def setup_task_after_play
-    desc 'Things to do after play'
+    nodesc 'Things to do after play'
     task :after_play do
       if @played_it && safe_mode?
         sh "git tag #{tag_name}"
@@ -303,8 +306,25 @@ class Shovel
   end
 
   def setup_task_provision
-    desc "Provision current #@release_branch"
+    nodesc "Provision current #@release_branch"
     task :provision => %i[ load_argument_cache play after_play ]
+  end
+
+  def setup_task_provision_list
+    namespace :provision do
+      desc "List previous provision runs"
+      task :list do
+        tags = `git tag | grep ^provision`.lines
+        for tag in tags
+          if tag =~ /^provision_(\d{4}(?:_\d{2}){4})_(\S+)_(\S+)_(\S+)$/
+            row = $~.captures
+            row[0] = Time.new(*row[0].split(?_)).strftime '%FT%T'
+            time, playbook, inv, user = row
+            puts "#{yellow(time)} #{green("#{playbook}@#{inv}")} by #{red(user)}"
+          end
+        end
+      end
+    end
   end
 
   def setup_all_tasks
