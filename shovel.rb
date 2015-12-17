@@ -15,6 +15,34 @@ class Shovel
   GITHUB_SHA_URL_FORMAT = 'https://github.com/betterplace/%s/commit/%s'
   GITHUB_TAG_URL_FORMAT = 'https://github.com/betterplace/%s/releases/tag/%s'
 
+  class Tag < Struct.new(:time, :playbook, :inv, :user)
+    include Term::ANSIColor
+
+    REGEXP = /^provision_(\d{4}(?:_\d{2}){4})_(\S+)_(\S+)_(\S+)$/
+
+    def self.parse(tag)
+      if tag =~ REGEXP
+        row = $~.captures
+        row[0] = Time.new(*row[0].split(?_)).strftime '%FT%T'
+        new(*row)
+      end
+    end
+
+    def self.shortcut(filename)
+      File.basename(filename).sub File.extname(filename), ''
+    end
+
+    def self.name(time, playbook, inventory, user)
+      tag_time = time.strftime '%Y_%m_%d_%H_%M'
+
+      "provision_#{tag_time}_#{shortcut(playbook)}_#{shortcut(inventory)}_#{user}"
+    end
+
+    def to_s
+      "#{yellow(time)} #{green("#{playbook}@#{inv}")} by #{red(user)}"
+    end
+  end
+
   def initialize(
     github_repo:,
     flowdock_api_token:,
@@ -72,10 +100,6 @@ class Shovel
       result
   end
 
-  def tag_time
-    @start_at.strftime '%Y_%m_%d_%H_%M'
-  end
-
   def ask?(re, prompt: nil)
     prompt and STDOUT.write prompt
     STDIN.gets.chomp =~ re
@@ -112,10 +136,6 @@ class Shovel
   memoize_method def playbook
     p = pick_file('Playbook <TAB>? ', var: 'PLAYBOOK', dir: 'playbooks', ext: '.yml')
     result = smart_expand(p, 'playbooks', '.yml')
-  end
-
-  def shortcut(filename)
-    File.basename(filename).sub File.extname(filename), ''
   end
 
   def production?
@@ -218,8 +238,8 @@ class Shovel
     "<a href=\"#{GITHUB_SHA_URL_FORMAT % [ @github_repo, current_sha ]}\">#{current_sha[0, 6]}</a>"
   end
 
-  def tag_name
-    "provision_#{tag_time}_#{shortcut(playbook)}_#{shortcut(inventory)}_#{env(:USER)}"
+  memoize_method def tag_name
+    Tag.name(@start_at, playbook, inventory, env(:USER))
   end
 
   def github_tag_link
@@ -244,6 +264,12 @@ class Shovel
     puts "Total runtime was #{duration}."
   rescue => e
     fail red("Caught #{e.class}: #{e}")
+  end
+
+  def tags
+    tags = `git tag | grep ^provision`.lines.map { |tag|
+      tag = Tag.parse(tag) or next
+    }.compact
   end
 
   def nodesc(*)
@@ -314,15 +340,7 @@ class Shovel
     namespace :provision do
       desc "List previous provision runs"
       task :list do
-        tags = `git tag | grep ^provision`.lines
-        for tag in tags
-          if tag =~ /^provision_(\d{4}(?:_\d{2}){4})_(\S+)_(\S+)_(\S+)$/
-            row = $~.captures
-            row[0] = Time.new(*row[0].split(?_)).strftime '%FT%T'
-            time, playbook, inv, user = row
-            puts "#{yellow(time)} #{green("#{playbook}@#{inv}")} by #{red(user)}"
-          end
-        end
+        puts tags
       end
     end
   end
