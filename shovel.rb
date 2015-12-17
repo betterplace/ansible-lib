@@ -15,8 +15,16 @@ class Shovel
   GITHUB_SHA_URL_FORMAT = 'https://github.com/betterplace/%s/commit/%s'
   GITHUB_TAG_URL_FORMAT = 'https://github.com/betterplace/%s/releases/tag/%s'
 
+  module Utils
+    def shortcut(filename)
+      File.basename(filename).sub File.extname(filename), ''
+    end
+  end
+  include Utils
+
   class Tag < Struct.new(:time, :playbook, :inv, :user)
     include Term::ANSIColor
+    extend Shovel::Utils
 
     REGEXP = /^provision_(\d{4}(?:_\d{2}){4})_(\S+)_(\S+)_(\S+)$/
 
@@ -26,10 +34,6 @@ class Shovel
         row[0] = Time.new(*row[0].split(?_)).strftime '%FT%T'
         new(*row)
       end
-    end
-
-    def self.shortcut(filename)
-      File.basename(filename).sub File.extname(filename), ''
     end
 
     def self.name(time, playbook, inventory, user)
