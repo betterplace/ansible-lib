@@ -104,6 +104,15 @@ class Shovel
       result
   end
 
+  def pick(msg, choices)
+    begin
+      choice = complete prompt: bright_blue(msg) do |pattern|
+        choices.grep(/#{Regexp.quote(pattern)}/)
+      end.to_s.strip
+    end until choices.member?(choice)
+    choice
+  end
+
   def ask?(re, prompt: nil)
     prompt and STDOUT.write prompt
     STDIN.gets.chomp =~ re
@@ -345,6 +354,27 @@ class Shovel
       desc "List previous provision runs"
       task :list do
         puts tags
+      end
+    end
+  end
+
+  def setup_task_command
+    namespace :provision do
+      desc 'Execute command on a hosts set'
+      task :command do
+        inv = inventory
+        hosts_sets = File.read(inv[3..-1]).scan(/^\[([^\]]+)\]$/).flatten.sort
+        host_set = pick('Hosts? ', hosts_sets)
+        begin
+          rc = 0
+          loop do
+            STDOUT.print black(rc == 0 ? on_green("#{rc}>") : on_red("#{rc}>")) << " "
+            command   = STDIN.gets.chomp
+            system "ansible #{inv} #{host_set} -m shell -a #{command.inspect}"
+            rc = $?.exitstatus
+          end
+        rescue Interrupt, NoMethodError
+        end
       end
     end
   end
