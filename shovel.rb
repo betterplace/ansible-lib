@@ -369,11 +369,11 @@ class Shovel
           rc = 0
           loop do
             prompt  = black(rc == 0 ? on_green("#{rc}>") : on_red("#{rc}>")) << " "
-            command = Readline.readline(prompt, true)
+            command = Readline.readline(prompt, true) or raise Interrupt
             system "ansible #{inv} #{host_set} -m shell -a #{command.inspect}"
             rc = $?.exitstatus
           end
-        rescue Interrupt, NoMethodError
+        rescue Interrupt
         end
       end
     end
