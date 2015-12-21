@@ -368,8 +368,8 @@ class Shovel
         begin
           rc = 0
           loop do
-            STDOUT.print black(rc == 0 ? on_green("#{rc}>") : on_red("#{rc}>")) << " "
-            command   = STDIN.gets.chomp
+            prompt  = black(rc == 0 ? on_green("#{rc}>") : on_red("#{rc}>")) << " "
+            command = Readline.readline(prompt, true)
             system "ansible #{inv} #{host_set} -m shell -a #{command.inspect}"
             rc = $?.exitstatus
           end
