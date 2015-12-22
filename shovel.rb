@@ -3,6 +3,7 @@ require 'term/ansicolor'
 require 'tins/xt'
 require 'flowdock'
 require 'yaml'
+require 'shellwords'
 
 class Shovel
   include Term::ANSIColor
@@ -370,7 +371,9 @@ class Shovel
           loop do
             prompt  = black(rc == 0 ? on_green("#{rc}>") : on_red("#{rc}>")) << " "
             command = Readline.readline(prompt, true) or raise Interrupt
-            system "ansible #{inv} #{host_set} -m shell -a #{command.inspect}"
+            command = Shellwords.escape(command)
+            ansible = "ansible #{inv} #{host_set} -m shell -a #{command}"
+            system ansible
             rc = $?.exitstatus
           end
         rescue Interrupt
