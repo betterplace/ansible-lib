@@ -4,6 +4,8 @@ require 'tins/xt'
 require 'flowdock'
 require 'yaml'
 require 'shellwords'
+require 'shovel/inventory_file'
+require 'json'
 
 class Shovel
   include Term::ANSIColor
@@ -359,25 +361,41 @@ class Shovel
     end
   end
 
+  memoize_method def inventory_file
+    InventoryFile.read(inventory.sub('-i ', ''))
+  end
+
+  def fetch_host_set_name
+    names = inventory_file.host_set_names
+    pick('Hosts? ', names)
+  end
+
   def setup_task_command
     namespace :provision do
       desc 'Execute command on a hosts set'
       task :command do
-        inv = inventory
-        hosts_sets = File.read(inv[3..-1]).scan(/^\[([^\]]+)\]$/).flatten.sort
-        host_set = pick('Hosts? ', hosts_sets)
+        host_set = fetch_host_set_name
         begin
           rc = 0
           loop do
             prompt  = black(rc == 0 ? on_green("#{rc}>") : on_red("#{rc}>")) << " "
             command = Readline.readline(prompt, true) or raise Interrupt
             command = Shellwords.escape(command)
-            ansible = "ansible #{inv} #{host_set} -m shell -f 1 -a #{command}"
+            ansible = "ansible #{inventory} #{host_set} -f 1 -m shell -a #{command}"
             system ansible
             rc = $?.exitstatus
           end
         rescue Interrupt
         end
+      end
+
+      desc 'Fetch hostvars as JSON'
+      task :hostvars do
+        host_set = inventory_file[inventory_file.host_set_names.first]
+        ansible = "ansible #{host_set.first.name} #{inventory} -f 1 -m debug -a 'var=hostvars'"
+        result = IO.popen(ansible).read
+        result.sub!(/^.*success >> /, '')
+        jj JSON(result)
       end
     end
   end
