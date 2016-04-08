@@ -6,6 +6,7 @@ require 'yaml'
 require 'shellwords'
 require 'shovel/inventory_file'
 require 'json'
+require 'set'
 
 class Shovel
   include Term::ANSIColor
@@ -25,7 +26,7 @@ class Shovel
   end
   include Utils
 
-  class Tag < Struct.new(:time, :playbook, :inv, :user)
+  class GitTag < Struct.new(:time, :playbook, :inv, :user)
     include Term::ANSIColor
     extend Shovel::Utils
 
@@ -40,9 +41,13 @@ class Shovel
     end
 
     def self.name(time, playbook, inventory, user)
-      tag_time = time.strftime '%Y_%m_%d_%H_%M'
-
-      "provision_#{tag_time}_#{shortcut(playbook)}_#{shortcut(inventory)}_#{user}"
+      [
+        'provision',
+        time.strftime('%Y_%m_%d_%H_%M'),
+        shortcut(playbook),
+        shortcut(inventory),
+        user
+      ] * ?_
     end
 
     def to_s
@@ -234,6 +239,23 @@ class Shovel
     end
   end
 
+  memoize_method def selected_ansible_tags
+    output = `ansible-playbook #{inventory} #{playbook} --list-tags`
+    tags   = Set[]
+    output.scan(/TAGS: \[([^\]]+)\]/) { tags.merge $1.split(/\s*,\s*/) }
+    puts 'Enter tags separated by spaces (enter for none):',
+      yellow(tags.sort.join(?\n))
+    print "tags = "
+    STDIN.gets.split(/\s+/)
+  end
+
+  def ansible_tags
+    selected_tags = selected_ansible_tags
+    unless selected_tags.empty?
+      "--tags=#{selected_tags.join(?,)}"
+    end
+  end
+
   def do_play(dry: false)
     sh [
       'ansible-playbook',
@@ -241,6 +263,7 @@ class Shovel
       inventory,
       verbose?,
       *unsafe_args,
+      *ansible_tags,
       *(%w[ --check --diff ] if dry)
     ].compact * ' '
     @played_it = !dry
@@ -254,12 +277,12 @@ class Shovel
     "<a href=\"#{GITHUB_SHA_URL_FORMAT % [ @github_repo, current_sha ]}\">#{current_sha[0, 6]}</a>"
   end
 
-  memoize_method def tag_name
-    Tag.name(@start_at, playbook, inventory, env(:USER))
+  memoize_method def git_tag_name
+    GitTag.name(@start_at, playbook, inventory, env(:USER))
   end
 
   def github_tag_link
-    "<a href=\"#{GITHUB_TAG_URL_FORMAT % [ @github_repo, tag_name ]}\">#{tag_name}</a>"
+    "<a href=\"#{GITHUB_TAG_URL_FORMAT % [ @github_repo, git_tag_name ]}\">#{git_tag_name}</a>"
   end
 
   def notify_flow
@@ -273,7 +296,8 @@ class Shovel
       subject: "Provisioned #@github_repo: #{shortcut(playbook)} / #{shortcut(inventory)}",
       content: "<p>Commit #{github_sha_link}, tag #{github_tag_link} was "\
                "provisioned via playbook <b>#{shortcut(playbook)}</b> for "\
-               "inventory <b>#{shortcut(inventory)}</b> in #{duration}.</p>",
+               "inventory <b>#{shortcut(inventory)}</b> in #{duration}.</p>"\
+               "<p>Tags were: #{selected_ansible_tags.empty? ? '<none>' : selected_ansible_tags * ?,}</p>",
       tags: [ "provision", env(:USER) ]
     )
     puts green("Notified the team in flowdock. 😽")
@@ -283,7 +307,7 @@ class Shovel
   end
 
   def tags
-    tags = `git tag | grep ^provision`.lines.map { |tag|
+    `git tag | grep ^provision`.lines.map { |tag|
       tag = Tag.parse(tag) or next
     }.compact
   end
@@ -340,8 +364,8 @@ class Shovel
     nodesc 'Things to do after play'
     task :after_play do
       if @played_it && safe_mode?
-        sh "git tag #{tag_name}"
-        sh "git push origin -f #{tag_name}"
+        sh "git tag #{git_tag_name}"
+        sh "git push origin -f #{git_tag_name}"
         notify_flow
       end
     end
