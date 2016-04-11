@@ -243,6 +243,7 @@ class Shovel
     output = `ansible-playbook #{inventory} #{playbook} --list-tags`
     tags   = Set[]
     output.scan(/TAGS: \[([^\]]+)\]/) { tags.merge $1.split(/\s*,\s*/) }
+    return [] if tags.empty?
     puts 'Enter tags separated by spaces (enter for none):',
       yellow(tags.sort.join(?\n))
     print "tags = "
