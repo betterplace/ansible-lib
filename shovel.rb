@@ -234,7 +234,7 @@ class Shovel
   def unsafe_args
     if safe_mode?
       []
-    elsif args= env(:UNSAFE_ARGS)
+    elsif args = env(:UNSAFE_ARGS)
       args.split(/\s+/)
     end
   end
