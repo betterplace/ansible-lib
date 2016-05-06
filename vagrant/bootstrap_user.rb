@@ -6,28 +6,28 @@ class Vagrant::BoostrapUser
     @remote_user = remote_user
 
     # Add user #{remote_user} to group wheel
-    @create_user = <<-SCRIPT
+    @create_user = <<~SCRIPT
     useradd -m -s /bin/bash -U #{remote_user}
     groupadd -f #{remote_user}
     usermod -a -s /bin/bash -g #{remote_user} -G wheel #{remote_user}
     SCRIPT
 
     # Enable wheel group in sudoers
-    @enable_wheel = <<-SCRIPT
+    @enable_wheel = <<~SCRIPT
     sed -i -e "s/^# %wheel/%wheel/" /etc/sudoers
     SCRIPT
 
     # Set local id_rsa.pub as authorized_key for remote_user
-    @add_authorized_key = <<-SCRIPT
+    @add_authorized_key = <<~SCRIPT
+    mkdir -m 0700 -p /home/#{remote_user}/.ssh
     rm -f /home/#{remote_user}/.ssh/authorized_keys
-    mkdir -p /home/#{remote_user}/.ssh
     cp /home/vagrant/host_pubkey /home/#{remote_user}/.ssh/authorized_keys
     chown #{remote_user}:#{remote_user} /home/#{remote_user}/.ssh/authorized_keys
-    chmod 600 /home/#{remote_user}/.ssh/authorized_keys
+    chmod 0600 /home/#{remote_user}/.ssh/authorized_keys
     SCRIPT
 
     # Remove local id_rsa.pub from image
-    @remove_host_pubkey = <<-SCRIPT
+    @remove_host_pubkey = <<~SCRIPT
     rm -f /home/vagrant/host_pubkey
     echo "id_rsa.pub installed for user #{remote_user}"
     SCRIPT
