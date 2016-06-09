@@ -20,6 +20,7 @@ class Vagrant::BoostrapUser
     # Set local id_rsa.pub as authorized_key for remote_user
     @add_authorized_key = <<-SCRIPT
     mkdir -m 0700 -p /home/#{remote_user}/.ssh
+    chown #{remote_user}:#{remote_user} /home/#{remote_user}/.ssh
     rm -f /home/#{remote_user}/.ssh/authorized_keys
     cp /home/vagrant/host_pubkey /home/#{remote_user}/.ssh/authorized_keys
     chown #{remote_user}:#{remote_user} /home/#{remote_user}/.ssh/authorized_keys
