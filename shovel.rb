@@ -406,7 +406,8 @@ class Shovel
             prompt  = black(rc == 0 ? on_green("#{rc}>") : on_red("#{rc}>")) << " "
             command = Readline.readline(prompt, true) or raise Interrupt
             command = Shellwords.escape(command)
-            ansible = "ansible #{inventory} #{host_set} -f 1 -m shell -a #{command}"
+            verbose =  ENV['VERBOSE'].to_i == 1 ? ' -vvv ' : ' '
+            ansible = "ansible #{inventory} #{host_set}#{verbose}-f 1 -m shell -a #{command}"
             system ansible
             rc = $?.exitstatus
           end
