@@ -309,7 +309,7 @@ class Shovel
 
   def tags
     `git tag | grep ^provision`.lines.map { |tag|
-      tag = Tag.parse(tag) or next
+      tag = GitTag.parse(tag) or next
     }.compact
   end
 
