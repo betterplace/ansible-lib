@@ -66,7 +66,7 @@ class Shovel
     @flowdock_api_token = flowdock_api_token
     @release_branch     = release_branch
     @start_at           = Time.now
-    @env_vars           = %i[ USER VERBOSE PREVIEW UNSAFE_ARGS PLAYBOOK INVENTORY ]
+    @env_vars           = %i[ USER VERBOSE PREVIEW UNSAFE_ARGS PLAYBOOK INVENTORY TAGS ]
     @vars               = {}
 
     setup_all_tasks
@@ -79,7 +79,7 @@ class Shovel
 
   def setup_exit_handler
     at_exit  do
-      unless File.exist?(CACHE_FILE) || @played_it
+      unless File.exist?(CACHE_FILE)
         vars = ENV.to_hash.subhash(*@env_vars).merge(@vars)
         File.secure_write(CACHE_FILE) { |f| Marshal.dump(vars, f) }
       end
@@ -247,13 +247,13 @@ class Shovel
     puts 'Enter tags separated by spaces (enter for none):',
       yellow(tags.sort.join(?\n))
     print "tags = "
-    STDIN.gets.split(/\s+/)
+    ENV['TAGS'] = STDIN.gets.split(/\s+/).join(?,)
   end
 
-  def ansible_tags
-    selected_tags = selected_ansible_tags
-    unless selected_tags.empty?
-      "--tags=#{selected_tags.join(?,)}"
+  memoize_method def ansible_tags
+    selected_tags = ENV['TAGS'] || selected_ansible_tags
+    if selected_tags.present?
+      "--tags=#{selected_tags}"
     end
   end
 
@@ -298,7 +298,7 @@ class Shovel
       content: "<p>Commit #{github_sha_link}, tag #{github_tag_link} was "\
                "provisioned via playbook <b>#{shortcut(playbook)}</b> for "\
                "inventory <b>#{shortcut(inventory)}</b> in #{duration}.</p>"\
-               "<p>Tags were: #{selected_ansible_tags.empty? ? '<none>' : selected_ansible_tags * ?,}</p>",
+               "<p>Tags were: #{selected_ansible_tags.blank? ? '<none>' : selected_ansible_tags * ?,}</p>",
       tags: [ "provision", env(:USER) ]
     )
     puts green("Notified the team in flowdock. 😽")
