@@ -298,7 +298,7 @@ class Shovel
       content: "<p>Commit #{github_sha_link}, tag #{github_tag_link} was "\
                "provisioned via playbook <b>#{shortcut(playbook)}</b> for "\
                "inventory <b>#{shortcut(inventory)}</b> in #{duration}.</p>"\
-               "<p>Tags were: #{selected_ansible_tags.blank? ? '<none>' : selected_ansible_tags * ?,}</p>",
+               "<p>Tags were: #{selected_ansible_tags.blank? ? '<none>' : selected_ansible_tags}</p>",
       tags: [ "provision", env(:USER) ]
     )
     puts green("Notified the team in flowdock. 😽")
